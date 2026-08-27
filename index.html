@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>The Burger Merger — Premium Burger Experience</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Preloader -->
+    <div id="preloader">
+        <div class="preloader-content">
+            <h1 class="preloader-logo">THE BURGER MERGER</h1>
+            <div class="preloader-bar">
+                <div class="preloader-progress"></div>
+            </div>
+            <p class="preloader-text">Loading experience...</p>
+        </div>
+    </div>
+
+    <!-- Fixed Canvas for Video Scrubbing -->
+    <canvas id="scrub-canvas" width="1280" height="720"></canvas>
+
+    <!-- Navigation -->
+    <nav class="main-nav">
+        <div class="nav-brand">
+            <span class="nav-logo">THE BURGER MERGER</span>
+        </div>
+        <div class="nav-links">
+            <a href="#section-1" class="nav-link active" data-section="1">01 — Foundation</a>
+            <a href="#section-2" class="nav-link" data-section="2">02 — The Build</a>
+            <a href="#section-3" class="nav-link" data-section="3">03 — The Crown</a>
+        </div>
+        <div class="nav-cta">
+            <a href="#menu" class="btn btn-outline">View Menu</a>
+        </div>
+    </nav>
+
+    <!-- Scroll Container -->
+    <div class="scroll-container">
+        
+        <!-- Section 1: Foundation -->
+        <section id="section-1" class="scroll-section" data-section="1">
+            <div class="section-content">
+                <div class="content-block">
+                    <span class="section-number">01</span>
+                    <h2 class="section-title">The Foundation</h2>
+                    <p class="section-body">
+                        Every great burger begins with the perfect base. Our signature charcoal bun, 
+                        baked fresh daily using a family recipe passed down through three generations. 
+                        The deep, smoky flavour of the charcoal creates a canvas unlike any other.
+                    </p>
+                    <div class="section-tags">
+                        <span class="tag">Charcoal Bun</span>
+                        <span class="tag">3-Generation Recipe</span>
+                        <span class="tag">Daily Baked</span>
+                    </div>
+                </div>
+                <div class="content-block pricing-block">
+                    <span class="price-label">Classic</span>
+                    <span class="price">$12</span>
+                    <span class="price-sublabel">Starting price</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 2: The Build -->
+        <section id="section-2" class="scroll-section" data-section="2">
+            <div class="section-content">
+                <div class="content-block">
+                    <span class="section-number">02</span>
+                    <h2 class="section-title">The Build</h2>
+                    <p class="section-body">
+                        Layer by layer, we construct perfection. The sauce — our secret family blend 
+                        of 12 ingredients. The lettuce — crisp and garden-fresh. The patty — seared 
+                        wagyu with a Maillard crust that seals in every drop of flavour.
+                    </p>
+                    <div class="section-tags">
+                        <span class="tag">Family Sauce</span>
+                        <span class="tag">Wagyu Beef</span>
+                        <span class="tag">Aged Cheddar</span>
+                        <span class="tag">Thick-Cut Bacon</span>
+                    </div>
+                </div>
+                <div class="content-block pricing-block">
+                    <span class="price-label">Smash</span>
+                    <span class="price">$18</span>
+                    <span class="price-sublabel">Mid-tier</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Section 3: The Crown -->
+        <section id="section-3" class="scroll-section" data-section="3">
+            <div class="section-content">
+                <div class="content-block">
+                    <span class="section-number">03</span>
+                    <h2 class="section-title">The Crown</h2>
+                    <p class="section-body">
+                        The finishing touch. Our top charcoal bun, toasted to a precise golden edge, 
+                        crowned with sesame seeds that catch the light like tiny jewels. When it 
+                        meets the stack, the steam rises — a signal that perfection is served.
+                    </p>
+                    <div class="section-tags">
+                        <span class="tag">Toasted Crown</span>
+                        <span class="tag">Sesame Finish</span>
+                        <span class="tag">Steam Perfection</span>
+                    </div>
+                </div>
+                <div class="content-block pricing-block premium">
+                    <span class="price-label">Wagyu</span>
+                    <span class="price">$28</span>
+                    <span class="price-sublabel">Premium</span>
+                </div>
+            </div>
+        </section>
+
+        <!-- Menu Section -->
+        <section id="menu" class="menu-section">
+            <div class="menu-content">
+                <h2 class="menu-title">THE MENU</h2>
+                <div class="menu-grid">
+                    <div class="menu-card">
+                        <div class="menu-card-image">
+                            <img src="assets/concept-4-layer-cake/section-3/4.3.2-finished-hero-top-down.webp" alt="Classic Burger">
+                        </div>
+                        <div class="menu-card-info">
+                            <h3>The Classic</h3>
+                            <p>Charcoal bun, wagyu patty, lettuce, tomato, house sauce</p>
+                            <span class="menu-price">$12 – $15</span>
+                        </div>
+                    </div>
+                    <div class="menu-card featured">
+                        <div class="menu-card-image">
+                            <img src="assets/concept-6-molecular/section-3/6.3.2-finished-burger-floating.webp" alt="Smash Burger">
+                        </div>
+                        <div class="menu-card-info">
+                            <h3>The Smash</h3>
+                            <p>Crispy-edged patty, caramelized onions, aged cheddar, special sauce</p>
+                            <span class="menu-price">$18</span>
+                        </div>
+                    </div>
+                    <div class="menu-card premium">
+                        <div class="menu-card-image">
+                            <img src="assets/concept-9-holographic/section-3/9.3.1-finished-hero-burger.webp" alt="Wagyu Burger">
+                        </div>
+                        <div class="menu-card-info">
+                            <h3>The Wagyu</h3>
+                            <p>A5-grade wagyu, truffle mayo, brioche bun, gold leaf</p>
+                            <span class="menu-price">$25 – $35</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- Footer -->
+        <footer class="site-footer">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <h3>THE BURGER MERGER</h3>
+                    <p>Premium burgers. Three generations of flavour.</p>
+                </div>
+                <div class="footer-links">
+                    <a href="#">Instagram</a>
+                    <a href="#">Reservations</a>
+                    <a href="#">Delivery</a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>© 2026 The Burger Merger. All rights reserved.</p>
+            </div>
+        </footer>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
+    <script src="https://unpkg.com/lenis@1.1.18/dist/lenis.min.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
