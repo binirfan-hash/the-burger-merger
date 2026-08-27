@@ -16,12 +16,19 @@
             <div class="preloader-bar">
                 <div class="preloader-progress"></div>
             </div>
-            <p class="preloader-text">Loading experience...</p>
+            <p class="preloader-text">Preparing experience</p>
         </div>
     </div>
 
-    <!-- Fixed Canvas for Video Scrubbing -->
-    <canvas id="scrub-canvas" width="1280" height="720"></canvas>
+    <!-- Fixed Cinematic Canvas -->
+    <div class="scrub-container">
+        <canvas id="scrub-canvas"></canvas>
+        <div class="vignette"></div>
+        <div class="grain-overlay"></div>
+        <div class="letterbox letterbox-top"></div>
+        <div class="letterbox letterbox-bottom"></div>
+        <div class="transition-overlay" id="transition-overlay"></div>
+    </div>
 
     <!-- Navigation -->
     <nav class="main-nav">
@@ -38,81 +45,72 @@
         </div>
     </nav>
 
-    <!-- Scroll Container -->
-    <div class="scroll-container">
+    <!-- Scroll Content -->
+    <div class="content-wrapper">
         
         <!-- Section 1: Foundation -->
-        <section id="section-1" class="scroll-section" data-section="1">
-            <div class="section-content">
-                <div class="content-block">
-                    <span class="section-number">01</span>
-                    <h2 class="section-title">The Foundation</h2>
-                    <p class="section-body">
-                        Every great burger begins with the perfect base. Our signature charcoal bun, 
-                        baked fresh daily using a family recipe passed down through three generations. 
-                        The deep, smoky flavour of the charcoal creates a canvas unlike any other.
-                    </p>
-                    <div class="section-tags">
-                        <span class="tag">Charcoal Bun</span>
-                        <span class="tag">3-Generation Recipe</span>
-                        <span class="tag">Daily Baked</span>
-                    </div>
+        <section id="section-1" class="scroll-section" data-section="1" data-frames="240">
+            <div class="section-content left">
+                <span class="section-number">01</span>
+                <h2 class="section-title">The Foundation</h2>
+                <p class="section-body">
+                    Every great burger begins with the perfect base. Our signature charcoal bun, 
+                    baked fresh daily using a family recipe passed down through three generations. 
+                    The deep, smoky flavour of the charcoal creates a canvas unlike any other.
+                </p>
+                <div class="section-tags">
+                    <span class="tag">Charcoal Bun</span>
+                    <span class="tag">3-Generation Recipe</span>
+                    <span class="tag">Daily Baked</span>
                 </div>
-                <div class="content-block pricing-block">
+                <div class="pricing-block">
                     <span class="price-label">Classic</span>
                     <span class="price">$12</span>
-                    <span class="price-sublabel">Starting price</span>
                 </div>
             </div>
         </section>
 
         <!-- Section 2: The Build -->
-        <section id="section-2" class="scroll-section" data-section="2">
-            <div class="section-content">
-                <div class="content-block">
-                    <span class="section-number">02</span>
-                    <h2 class="section-title">The Build</h2>
-                    <p class="section-body">
-                        Layer by layer, we construct perfection. The sauce — our secret family blend 
-                        of 12 ingredients. The lettuce — crisp and garden-fresh. The patty — seared 
-                        wagyu with a Maillard crust that seals in every drop of flavour.
-                    </p>
-                    <div class="section-tags">
-                        <span class="tag">Family Sauce</span>
-                        <span class="tag">Wagyu Beef</span>
-                        <span class="tag">Aged Cheddar</span>
-                        <span class="tag">Thick-Cut Bacon</span>
-                    </div>
+        <section id="section-2" class="scroll-section" data-section="2" data-frames="360">
+            <div class="section-content right">
+                <span class="section-number">02</span>
+                <h2 class="section-title">The Build</h2>
+                <p class="section-body">
+                    Layer by layer, we construct perfection. The sauce — our secret family blend 
+                    of 12 ingredients. The lettuce — crisp and garden-fresh. The patty — seared 
+                    wagyu with a Maillard crust that seals in every drop of flavour.
+                </p>
+                <div class="section-tags">
+                    <span class="tag">Family Sauce</span>
+                    <span class="tag">Wagyu Beef</span>
+                    <span class="tag">Aged Cheddar</span>
+                    <span class="tag">Thick-Cut Bacon</span>
                 </div>
-                <div class="content-block pricing-block">
+                <div class="pricing-block">
                     <span class="price-label">Smash</span>
                     <span class="price">$18</span>
-                    <span class="price-sublabel">Mid-tier</span>
                 </div>
             </div>
         </section>
 
         <!-- Section 3: The Crown -->
-        <section id="section-3" class="scroll-section" data-section="3">
-            <div class="section-content">
-                <div class="content-block">
-                    <span class="section-number">03</span>
-                    <h2 class="section-title">The Crown</h2>
-                    <p class="section-body">
-                        The finishing touch. Our top charcoal bun, toasted to a precise golden edge, 
-                        crowned with sesame seeds that catch the light like tiny jewels. When it 
-                        meets the stack, the steam rises — a signal that perfection is served.
-                    </p>
-                    <div class="section-tags">
-                        <span class="tag">Toasted Crown</span>
-                        <span class="tag">Sesame Finish</span>
-                        <span class="tag">Steam Perfection</span>
-                    </div>
+        <section id="section-3" class="scroll-section" data-section="3" data-frames="240">
+            <div class="section-content center">
+                <span class="section-number">03</span>
+                <h2 class="section-title">The Crown</h2>
+                <p class="section-body">
+                    The finishing touch. Our top charcoal bun, toasted to a precise golden edge, 
+                    crowned with sesame seeds that catch the light like tiny jewels. When it 
+                    meets the stack, the steam rises — a signal that perfection is served.
+                </p>
+                <div class="section-tags">
+                    <span class="tag">Toasted Crown</span>
+                    <span class="tag">Sesame Finish</span>
+                    <span class="tag">Steam Perfection</span>
                 </div>
-                <div class="content-block pricing-block premium">
+                <div class="pricing-block">
                     <span class="price-label">Wagyu</span>
                     <span class="price">$28</span>
-                    <span class="price-sublabel">Premium</span>
                 </div>
             </div>
         </section>
@@ -124,7 +122,7 @@
                 <div class="menu-grid">
                     <div class="menu-card">
                         <div class="menu-card-image">
-                            <img src="assets/concept-4-layer-cake/section-3/4.3.2-finished-hero-top-down.webp" alt="Classic Burger">
+                            <img src="assets/concept-4-layer-cake/section-3/4.3.2-finished-hero-top-down.webp" alt="Classic Burger" loading="lazy">
                         </div>
                         <div class="menu-card-info">
                             <h3>The Classic</h3>
@@ -134,7 +132,7 @@
                     </div>
                     <div class="menu-card featured">
                         <div class="menu-card-image">
-                            <img src="assets/concept-6-molecular/section-3/6.3.2-finished-burger-floating.webp" alt="Smash Burger">
+                            <img src="assets/concept-6-molecular/section-3/6.3.2-finished-burger-floating.webp" alt="Smash Burger" loading="lazy">
                         </div>
                         <div class="menu-card-info">
                             <h3>The Smash</h3>
@@ -144,7 +142,7 @@
                     </div>
                     <div class="menu-card premium">
                         <div class="menu-card-image">
-                            <img src="assets/concept-9-holographic/section-3/9.3.1-finished-hero-burger.webp" alt="Wagyu Burger">
+                            <img src="assets/concept-9-holographic/section-3/9.3.1-finished-hero-burger.webp" alt="Wagyu Burger" loading="lazy">
                         </div>
                         <div class="menu-card-info">
                             <h3>The Wagyu</h3>

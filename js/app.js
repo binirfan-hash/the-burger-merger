@@ -1,155 +1,162 @@
 /**
- * The Burger Merger — Scrollytelling App
- * Canvas frame scrubber + GSAP ScrollTrigger + Lenis smooth scroll
+ * THE BURGER MERGER — Cinematic Scrollytelling Engine
+ * 
+ * Features:
+ * - Smooth scroll-driven frame scrubbing with lerp interpolation
+ * - Cinematic crossfade transitions between sections
+ * - Progressive frame loading (no blocking)
+ * - Film grain, vignette, letterbox overlays
+ * - Text animations synced to scroll position
+ * - GSAP ScrollTrigger + Lenis smooth scroll
  */
 
-class BurgerScrollyApp {
+class CinematicScrolly {
     constructor() {
         this.canvas = document.getElementById('scrub-canvas');
         this.ctx = this.canvas.getContext('2d');
         this.preloader = document.getElementById('preloader');
         this.preloaderProgress = document.querySelector('.preloader-progress');
         this.preloaderText = document.querySelector('.preloader-text');
-        
-        // Frame configuration
+        this.transitionOverlay = document.getElementById('transition-overlay');
+
+        // Section configuration
         this.sections = [
-            { id: 1, frameCount: 240, path: '../assets/video-frames/section-1/frame_' },
-            { id: 2, frameCount: 360, path: '../assets/video-frames/section-2/frame_' },
-            { id: 3, frameCount: 240, path: '../assets/video-frames/section-3/frame_' }
+            { id: 1, frameCount: 240, path: 'assets/video-frames/section-1/frame_', name: 'Foundation' },
+            { id: 2, frameCount: 360, path: 'assets/video-frames/section-2/frame_', name: 'Build' },
+            { id: 3, frameCount: 240, path: 'assets/video-frames/section-3/frame_', name: 'Crown' }
         ];
-        
-        this.totalFrames = this.sections.reduce((sum, s) => sum + s.frameCount, 0);
-        this.frames = []; // Array of loaded Image objects
-        this.loadedCount = 0;
-        
-        // Scroll state
+
+        // Frame cache: sectionId -> Map(index -> Image)
+        this.frameCache = new Map();
+        this.sections.forEach(s => this.frameCache.set(s.id, new Map()));
+
+        // Render state
         this.currentSection = 0;
-        this.currentFrame = 0;
-        this.scrollProgress = 0;
-        
+        this.currentFrameIndex = 0;
+        this.targetFrameIndex = 0;
+        this.previousFrameImage = null;
+        this.crossfadeAlpha = 1;
+        this.sectionTransitionProgress = 0;
+
+        // Smoothing
+        this.frameLerpSpeed = 0.12;
+        this.lastRenderTime = 0;
+
         // Canvas sizing
-        this.canvasWidth = 1280;
-        this.canvasHeight = 720;
-        
-        // Bind methods
-        this.handleResize = this.handleResize.bind(this);
-        this.handleScroll = this.handleScroll.bind(this);
-        this.render = this.render.bind(this);
-        
+        this.dpr = Math.min(window.devicePixelRatio, 2);
+        this.canvasWidth = 0;
+        this.canvasHeight = 0;
+
+        // Animation frame ID
+        this.rafId = null;
+
         this.init();
     }
-    
+
     async init() {
         this.setupCanvas();
+        this.setupResize();
+        
+        // Show preloader while loading initial frames
+        await this.preloadInitialFrames();
+        
+        this.hidePreloader();
         this.setupLenis();
         this.setupScrollTrigger();
         this.setupNavigation();
-        
-        // Load frames
-        await this.loadFrames();
-        
-        // Hide preloader
-        this.hidePreloader();
-        
-        // Start render loop
-        this.render();
+        this.startRenderLoop();
     }
-    
+
     setupCanvas() {
-        this.handleResize();
-        window.addEventListener('resize', this.handleResize);
+        this.resizeCanvas();
     }
-    
-    handleResize() {
-        const dpr = Math.min(window.devicePixelRatio, 2);
+
+    setupResize() {
+        window.addEventListener('resize', () => {
+            this.resizeCanvas();
+        });
+    }
+
+    resizeCanvas() {
         const w = window.innerWidth;
         const h = window.innerHeight;
         
-        // Set canvas size to match viewport
-        this.canvas.width = w * dpr;
-        this.canvas.height = h * dpr;
+        this.canvas.width = w * this.dpr;
+        this.canvas.height = h * this.dpr;
         this.canvas.style.width = w + 'px';
         this.canvas.style.height = h + 'px';
         
-        this.ctx.scale(dpr, dpr);
+        this.ctx.scale(this.dpr, this.dpr);
         this.canvasWidth = w;
         this.canvasHeight = h;
     }
-    
-    async loadFrames() {
-        const loadPromises = [];
+
+    async preloadInitialFrames() {
+        const promises = [];
         
         for (const section of this.sections) {
-            for (let i = 0; i < section.frameCount; i++) {
-                const frameNum = String(i).padStart(4, '0');
-                const src = `${section.path}${frameNum}.webp`;
-                
-                const promise = this.loadImage(src).then(img => {
-                    this.frames.push({
-                        section: section.id,
-                        index: i,
-                        image: img
-                    });
-                    this.loadedCount++;
-                    this.updatePreloader();
-                    return img;
-                }).catch(err => {
-                    console.warn(`Failed to load frame: ${src}`, err);
-                    this.loadedCount++;
-                    this.updatePreloader();
-                    return null;
-                });
-                
-                loadPromises.push(promise);
+            // Load first 10 frames of each section
+            for (let i = 0; i < Math.min(10, section.frameCount); i++) {
+                promises.push(this.loadFrame(section.id, i, section.path));
             }
         }
         
-        // Sort frames by section and index after loading
-        await Promise.all(loadPromises);
-        this.frames.sort((a, b) => {
-            if (a.section !== b.section) return a.section - b.section;
-            return a.index - b.index;
-        });
+        let loaded = 0;
+        const total = promises.length;
+        
+        for (const promise of promises) {
+            await promise;
+            loaded++;
+            const progress = (loaded / total) * 100;
+            this.preloaderProgress.style.width = progress + '%';
+            this.preloaderText.textContent = `Loading ${loaded}/${total} frames...`;
+        }
     }
-    
-    loadImage(src) {
-        return new Promise((resolve, reject) => {
+
+    loadFrame(sectionId, index, path) {
+        const cache = this.frameCache.get(sectionId);
+        if (cache.has(index)) return Promise.resolve(cache.get(index));
+
+        const frameNum = String(index + 1).padStart(4, '0');
+        const src = `${path}${frameNum}.webp`;
+
+        return new Promise((resolve) => {
             const img = new Image();
-            img.onload = () => resolve(img);
-            img.onerror = reject;
+            img.onload = () => {
+                cache.set(index, img);
+                resolve(img);
+            };
+            img.onerror = () => {
+                console.warn(`Failed: ${src}`);
+                resolve(null);
+            };
             img.src = src;
         });
     }
-    
-    updatePreloader() {
-        const progress = (this.loadedCount / this.totalFrames) * 100;
-        this.preloaderProgress.style.width = progress + '%';
-        this.preloaderText.textContent = `Loading frames... ${Math.round(progress)}%`;
+
+    getFrame(sectionId, index) {
+        const cache = this.frameCache.get(sectionId);
+        return cache ? cache.get(index) : null;
     }
-    
+
     hidePreloader() {
         this.preloaderProgress.style.width = '100%';
-        this.preloaderText.textContent = 'Ready!';
+        this.preloaderText.textContent = 'Ready';
         
         setTimeout(() => {
             this.preloader.classList.add('hidden');
-            // Animate content blocks in
-            this.animateContentBlocks();
-        }, 500);
+        }, 400);
     }
-    
+
     setupLenis() {
         this.lenis = new Lenis({
-            duration: 1.2,
+            duration: 1.8,
             easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
-            orientation: 'vertical',
-            gestureOrientation: 'vertical',
             smoothWheel: true,
-            wheelMultiplier: 1,
-            touchMultiplier: 2,
+            wheelMultiplier: 0.8,
+            touchMultiplier: 1.5,
         });
-        
-        // Connect Lenis to GSAP ScrollTrigger
+
         this.lenis.on('scroll', ScrollTrigger.update);
         
         gsap.ticker.add((time) => {
@@ -158,126 +165,168 @@ class BurgerScrollyApp {
         
         gsap.ticker.lagSmoothing(0);
     }
-    
+
     setupScrollTrigger() {
-        // Create pinned sections
-        const sections = document.querySelectorAll('.scroll-section');
+        const sectionElements = document.querySelectorAll('.scroll-section');
         
-        sections.forEach((section, index) => {
-            const contentBlocks = section.querySelectorAll('.content-block');
+        sectionElements.forEach((sectionEl, index) => {
+            const section = this.sections[index];
+            const contentEl = sectionEl.querySelector('.section-content');
+            const textElements = sectionEl.querySelectorAll('.section-number, .section-title, .section-body, .section-tags, .pricing-block');
             
-            // Pin each section
+            // Create pinned scroll section
             ScrollTrigger.create({
-                trigger: section,
+                trigger: sectionEl,
                 start: 'top top',
-                end: '+=100%',
+                end: () => `+=${section.frameCount * 15}`, // Each frame = 15px of scroll
                 pin: true,
                 pinSpacing: true,
-                scrub: 1,
+                scrub: 0.8,
+                
                 onUpdate: (self) => {
-                    // Map scroll progress to section and frame
-                    this.updateFrameFromScroll(self.progress, index);
-                    this.updateContentOpacity(contentBlocks, self.progress);
+                    const progress = self.progress;
+                    
+                    // Map scroll progress to frame index
+                    const frameIndex = Math.min(
+                        Math.floor(progress * (section.frameCount - 1)),
+                        section.frameCount - 1
+                    );
+                    
+                    this.targetFrameIndex = frameIndex;
+                    this.currentSection = index;
+                    
+                    // Progressive loading: current + next 5 frames
+                    this.preloadAhead(section.id, frameIndex, 5);
+                    
+                    // Text animations based on progress
+                    this.animateText(textElements, progress);
                 },
-                onEnter: () => this.updateNavActive(index + 1),
-                onEnterBack: () => this.updateNavActive(index + 1),
+                
+                onEnter: () => {
+                    this.updateNavActive(index + 1);
+                },
+                
+                onEnterBack: () => {
+                    this.updateNavActive(index + 1);
+                },
+                
+                onLeave: () => {
+                    // Start transition to next section
+                    this.startSectionTransition(index + 1);
+                },
+                
+                onLeaveBack: () => {
+                    this.startSectionTransition(index - 1);
+                }
             });
         });
-        
-        // Menu section (not pinned)
+
+        // Menu section animation
         ScrollTrigger.create({
             trigger: '#menu',
-            start: 'top 80%',
+            start: 'top 85%',
             onEnter: () => {
+                gsap.from('.menu-title', {
+                    y: 40, opacity: 0, duration: 1, ease: 'power3.out'
+                });
                 gsap.from('.menu-card', {
-                    y: 60,
-                    opacity: 0,
-                    duration: 0.8,
-                    stagger: 0.15,
-                    ease: 'power3.out'
+                    y: 80, opacity: 0, duration: 1.2, stagger: 0.2, ease: 'power3.out', delay: 0.2
                 });
             },
             once: true
         });
+
+        // Navigation background on scroll
+        ScrollTrigger.create({
+            trigger: 'body',
+            start: 'top -100',
+            onUpdate: (self) => {
+                const nav = document.querySelector('.main-nav');
+                if (self.scroll() > 100) {
+                    nav.style.background = 'rgba(10,10,10,0.9)';
+                } else {
+                    nav.style.background = 'linear-gradient(to bottom, rgba(10,10,10,0.8) 0%, transparent 100%)';
+                }
+            }
+        });
     }
-    
-    updateFrameFromScroll(progress, sectionIndex) {
-        const section = this.sections[sectionIndex];
+
+    preloadAhead(sectionId, currentIndex, count) {
+        const section = this.sections.find(s => s.id === sectionId);
         if (!section) return;
-        
-        // Map progress (0-1) to frame index
-        const frameIndex = Math.floor(progress * (section.frameCount - 1));
-        
-        // Find the frame in our loaded frames array
-        const frame = this.frames.find(f => f.section === section.id && f.index === frameIndex);
-        
-        if (frame && frame.image) {
-            this.currentFrame = frame;
+
+        for (let i = 1; i <= count; i++) {
+            const nextIndex = currentIndex + i;
+            if (nextIndex < section.frameCount && !this.getFrame(sectionId, nextIndex)) {
+                this.loadFrame(sectionId, nextIndex, section.path);
+            }
         }
     }
-    
-    updateContentOpacity(blocks, progress) {
-        // Fade in content at start of section (0-20%)
-        // Hold (20-80%)
-        // Fade out at end (80-100%)
+
+    animateText(elements, progress) {
+        // Entrance: 0% - 15%
+        // Hold: 15% - 85%
+        // Exit: 85% - 100%
         
-        blocks.forEach((block, i) => {
+        elements.forEach((el, i) => {
+            const stagger = i * 0.03;
+            const adjustedProgress = Math.max(0, Math.min(1, progress));
+            
             let opacity = 0;
             let translateY = 40;
             
-            if (progress < 0.2) {
-                // Fade in
-                const p = progress / 0.2;
-                opacity = p;
-                translateY = 40 * (1 - p);
-            } else if (progress < 0.8) {
+            if (adjustedProgress < 0.15) {
+                // Entrance
+                const p = adjustedProgress / 0.15;
+                opacity = Math.min(1, p * 1.5);
+                translateY = 40 * (1 - Math.min(1, p * 1.5));
+            } else if (adjustedProgress < 0.85) {
                 // Hold
                 opacity = 1;
                 translateY = 0;
             } else {
-                // Fade out
-                const p = (progress - 0.8) / 0.2;
-                opacity = 1 - p;
-                translateY = -40 * p;
+                // Exit
+                const p = (adjustedProgress - 0.85) / 0.15;
+                opacity = Math.max(0, 1 - p * 1.5);
+                translateY = -30 * Math.min(1, p * 1.5);
             }
             
-            // Stagger the blocks slightly
-            const staggerOffset = i * 0.05;
-            const adjustedProgress = Math.max(0, Math.min(1, progress - staggerOffset));
-            
-            block.style.opacity = opacity;
-            block.style.transform = `translateY(${translateY}px)`;
+            el.style.opacity = opacity;
+            el.style.transform = `translateY(${translateY}px)`;
         });
     }
-    
-    setupNavigation() {
-        const nav = document.querySelector('.main-nav');
-        
-        // Add scroll class to nav
-        ScrollTrigger.create({
-            start: 'top -100',
-            onUpdate: (self) => {
-                if (self.scroll() > 100) {
-                    nav.classList.add('scrolled');
-                } else {
-                    nav.classList.remove('scrolled');
+
+    startSectionTransition(targetSectionIndex) {
+        // Brief flash/dip effect during section change
+        if (targetSectionIndex >= 0 && targetSectionIndex < this.sections.length) {
+            gsap.to(this.transitionOverlay, {
+                opacity: 0.3,
+                duration: 0.2,
+                ease: 'power2.in',
+                onComplete: () => {
+                    gsap.to(this.transitionOverlay, {
+                        opacity: 0,
+                        duration: 0.4,
+                        ease: 'power2.out'
+                    });
                 }
-            }
-        });
-        
-        // Nav link clicks
+            });
+        }
+    }
+
+    setupNavigation() {
         document.querySelectorAll('.nav-link').forEach(link => {
             link.addEventListener('click', (e) => {
                 e.preventDefault();
                 const target = link.getAttribute('href');
                 const section = document.querySelector(target);
                 if (section) {
-                    this.lenis.scrollTo(section);
+                    this.lenis.scrollTo(section, { duration: 2 });
                 }
             });
         });
     }
-    
+
     updateNavActive(sectionNum) {
         document.querySelectorAll('.nav-link').forEach(link => {
             link.classList.remove('active');
@@ -286,51 +335,116 @@ class BurgerScrollyApp {
             }
         });
     }
-    
-    animateContentBlocks() {
-        document.querySelectorAll('.content-block').forEach(block => {
-            block.style.opacity = '0';
-            block.style.transform = 'translateY(40px)';
-            block.style.transition = 'opacity 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94), transform 0.8s cubic-bezier(0.25, 0.46, 0.45, 0.94)';
-        });
-    }
-    
-    render() {
-        if (this.currentFrame && this.currentFrame.image) {
-            const img = this.currentFrame.image;
+
+    startRenderLoop() {
+        const loop = (timestamp) => {
+            const dt = timestamp - this.lastRenderTime;
+            this.lastRenderTime = timestamp;
             
-            // Clear canvas
-            this.ctx.clearRect(0, 0, this.canvasWidth, this.canvasHeight);
+            this.updateFrame(dt);
+            this.render();
             
-            // Calculate cover-fit dimensions
-            const canvasAspect = this.canvasWidth / this.canvasHeight;
-            const imgAspect = img.width / img.height;
-            
-            let drawWidth, drawHeight, drawX, drawY;
-            
-            if (canvasAspect > imgAspect) {
-                // Canvas is wider than image - fill width, crop height
-                drawWidth = this.canvasWidth;
-                drawHeight = this.canvasWidth / imgAspect;
-                drawX = 0;
-                drawY = (this.canvasHeight - drawHeight) / 2;
-            } else {
-                // Canvas is taller than image - fill height, crop width
-                drawHeight = this.canvasHeight;
-                drawWidth = this.canvasHeight * imgAspect;
-                drawX = (this.canvasWidth - drawWidth) / 2;
-                drawY = 0;
-            }
-            
-            // Draw image with cover fit
-            this.ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
-        }
+            this.rafId = requestAnimationFrame(loop);
+        };
         
-        requestAnimationFrame(this.render);
+        this.rafId = requestAnimationFrame(loop);
+    }
+
+    updateFrame(dt) {
+        const section = this.sections[this.currentSection];
+        if (!section) return;
+
+        // Smooth lerp between current and target frame
+        const diff = this.targetFrameIndex - this.currentFrameIndex;
+        
+        if (Math.abs(diff) > 0.1) {
+            // Adjust lerp speed based on scroll velocity
+            const speed = Math.min(0.25, this.frameLerpSpeed + Math.abs(diff) * 0.02);
+            this.currentFrameIndex += diff * speed;
+        } else {
+            this.currentFrameIndex = this.targetFrameIndex;
+        }
+
+        // Clamp
+        this.currentFrameIndex = Math.max(0, Math.min(this.currentFrameIndex, section.frameCount - 1));
+    }
+
+    render() {
+        const section = this.sections[this.currentSection];
+        if (!section) return;
+
+        const frameIdx = Math.round(this.currentFrameIndex);
+        const frame = this.getFrame(section.id, frameIdx);
+
+        // Clear
+        this.ctx.fillStyle = '#0a0a0a';
+        this.ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+
+        if (frame && frame.complete) {
+            this.drawCoverImage(frame);
+        }
+
+        // Apply cinematic overlays via canvas (optional enhancement)
+        // this.drawVignette();
+    }
+
+    drawCoverImage(img) {
+        const canvasAspect = this.canvasWidth / this.canvasHeight;
+        const imgAspect = img.width / img.height;
+
+        let drawWidth, drawHeight, drawX, drawY;
+
+        if (canvasAspect > imgAspect) {
+            drawWidth = this.canvasWidth;
+            drawHeight = this.canvasWidth / imgAspect;
+            drawX = 0;
+            drawY = (this.canvasHeight - drawHeight) / 2;
+        } else {
+            drawHeight = this.canvasHeight;
+            drawWidth = this.canvasHeight * imgAspect;
+            drawX = (this.canvasWidth - drawWidth) / 2;
+            drawY = 0;
+        }
+
+        this.ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
+    }
+
+    drawVignette() {
+        const gradient = this.ctx.createRadialGradient(
+            this.canvasWidth / 2, this.canvasHeight / 2, this.canvasHeight * 0.3,
+            this.canvasWidth / 2, this.canvasHeight / 2, this.canvasHeight * 0.8
+        );
+        gradient.addColorStop(0, 'rgba(10,10,10,0)');
+        gradient.addColorStop(1, 'rgba(10,10,10,0.6)');
+        
+        this.ctx.fillStyle = gradient;
+        this.ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
+    }
+
+    destroy() {
+        if (this.rafId) {
+            cancelAnimationFrame(this.rafId);
+        }
+        if (this.lenis) {
+            this.lenis.destroy();
+        }
+        ScrollTrigger.getAll().forEach(t => t.kill());
     }
 }
 
-// Initialize when DOM is ready
+// Initialize
 document.addEventListener('DOMContentLoaded', () => {
-    window.burgerApp = new BurgerScrollyApp();
+    window.scrolly = new CinematicScrolly();
+});
+
+// Handle visibility change
+let wasHidden = false;
+document.addEventListener('visibilitychange', () => {
+    if (document.hidden) {
+        wasHidden = true;
+    } else if (wasHidden && window.scrolly) {
+        // Refresh ScrollTrigger on tab return
+        ScrollTrigger.refresh();
+        wasHidden = false;
+    }
 });
