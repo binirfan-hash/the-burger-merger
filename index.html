@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>The Burger Merger — Premium Burger Experience</title>
-    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/style.css?v=3">
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Oswald:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 </head>
@@ -115,41 +115,49 @@
             </div>
         </section>
 
-        <!-- Menu Section -->
+        <!-- Menu Section — 3 Burger Carousel -->
         <section id="menu" class="menu-section">
             <div class="menu-content">
                 <h2 class="menu-title">THE MENU</h2>
-                <div class="menu-grid">
-                    <div class="menu-card">
-                        <div class="menu-card-image">
-                            <img src="assets/concept-4-layer-cake/section-3/4.3.2-finished-hero-top-down.webp" alt="Classic Burger" loading="lazy">
+                <div class="burger-showcase">
+                    
+                    <!-- Burger 1: Classic -->
+                    <div class="burger-item" data-burger="classic">
+                        <div class="burger-item-image">
+                            <img src="assets/concept-4-layer-cake/section-3/4.3.2-finished-hero-top-down.webp" alt="The Classic Burger">
                         </div>
-                        <div class="menu-card-info">
+                        <div class="burger-item-info">
                             <h3>The Classic</h3>
                             <p>Charcoal bun, wagyu patty, lettuce, tomato, house sauce</p>
-                            <span class="menu-price">$12 – $15</span>
+                            <span class="burger-item-price">$12</span>
                         </div>
                     </div>
-                    <div class="menu-card featured">
-                        <div class="menu-card-image">
-                            <img src="assets/concept-6-molecular/section-3/6.3.2-finished-burger-floating.webp" alt="Smash Burger" loading="lazy">
+                    
+                    <!-- Burger 2: Smash (Featured) -->
+                    <div class="burger-item featured" data-burger="smash">
+                        <span class="burger-badge">Featured</span>
+                        <div class="burger-item-image">
+                            <img src="assets/concept-6-molecular/section-3/6.3.2-finished-burger-floating.webp" alt="The Smash Burger">
                         </div>
-                        <div class="menu-card-info">
+                        <div class="burger-item-info">
                             <h3>The Smash</h3>
                             <p>Crispy-edged patty, caramelized onions, aged cheddar, special sauce</p>
-                            <span class="menu-price">$18</span>
+                            <span class="burger-item-price">$18</span>
                         </div>
                     </div>
-                    <div class="menu-card premium">
-                        <div class="menu-card-image">
-                            <img src="assets/concept-9-holographic/section-3/9.3.1-finished-hero-burger.webp" alt="Wagyu Burger" loading="lazy">
+                    
+                    <!-- Burger 3: Wagyu (Premium) -->
+                    <div class="burger-item premium" data-burger="wagyu">
+                        <div class="burger-item-image">
+                            <img src="assets/concept-9-holographic/section-3/9.3.1-finished-hero-burger.webp" alt="The Wagyu Burger">
                         </div>
-                        <div class="menu-card-info">
+                        <div class="burger-item-info">
                             <h3>The Wagyu</h3>
-                            <p>A5-grade wagyu, truffle mayo, brioche bun, gold leaf</p>
-                            <span class="menu-price">$25 – $35</span>
+                            <p>A5-grade wagyu, truffle mayo, gold leaf, toasted brioche</p>
+                            <span class="burger-item-price">$28</span>
                         </div>
                     </div>
+                    
                 </div>
             </div>
         </section>
@@ -168,7 +176,7 @@
                 </div>
             </div>
             <div class="footer-bottom">
-                <p>© 2026 The Burger Merger. All rights reserved.</p>
+                <p>&copy; 2026 The Burger Merger. All rights reserved.</p>
             </div>
         </footer>
     </div>
@@ -177,6 +185,6 @@
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/gsap.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.5/ScrollTrigger.min.js"></script>
     <script src="https://unpkg.com/lenis@1.1.18/dist/lenis.min.js"></script>
-    <script src="js/app.js"></script>
+    <script src="js/app.js?v=3"></script>
 </body>
 </html>

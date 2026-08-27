@@ -1,13 +1,11 @@
 /**
  * THE BURGER MERGER — Cinematic Scrollytelling Engine
  * 
- * Features:
- * - Smooth scroll-driven frame scrubbing with lerp interpolation
- * - Cinematic crossfade transitions between sections
- * - Progressive frame loading (no blocking)
- * - Film grain, vignette, letterbox overlays
- * - Text animations synced to scroll position
- * - GSAP ScrollTrigger + Lenis smooth scroll
+ * Section Flow:
+ * - Section 1: Foundation (240 frames) — bun placed on plate
+ * - Section 2: The Build (360 frames) — ingredients layered
+ * - Section 3: The Crown (240 frames) — top bun placed, then holds
+ * - Menu: 3 burger cards with hover highlight/greyout
  */
 
 class CinematicScrolly {
@@ -36,19 +34,23 @@ class CinematicScrolly {
         this.targetFrameIndex = 0;
         this.previousFrameImage = null;
         this.crossfadeAlpha = 1;
-        this.sectionTransitionProgress = 0;
 
         // Smoothing
-        this.frameLerpSpeed = 0.12;
+        this.frameLerpSpeed = 0.1;
         this.lastRenderTime = 0;
+        this.isSectionTransitioning = false;
 
         // Canvas sizing
         this.dpr = Math.min(window.devicePixelRatio, 2);
         this.canvasWidth = 0;
         this.canvasHeight = 0;
 
-        // Animation frame ID
+        // RAF ID
         this.rafId = null;
+
+        // Section 3 hold state
+        this.section3HoldFrame = null;
+        this.section3BreathingPhase = 0;
 
         this.init();
     }
@@ -57,13 +59,13 @@ class CinematicScrolly {
         this.setupCanvas();
         this.setupResize();
         
-        // Show preloader while loading initial frames
         await this.preloadInitialFrames();
         
         this.hidePreloader();
         this.setupLenis();
         this.setupScrollTrigger();
         this.setupNavigation();
+        this.setupMenuHover();
         this.startRenderLoop();
     }
 
@@ -72,9 +74,7 @@ class CinematicScrolly {
     }
 
     setupResize() {
-        window.addEventListener('resize', () => {
-            this.resizeCanvas();
-        });
+        window.addEventListener('resize', () => this.resizeCanvas());
     }
 
     resizeCanvas() {
@@ -95,9 +95,13 @@ class CinematicScrolly {
         const promises = [];
         
         for (const section of this.sections) {
-            // Load first 10 frames of each section
-            for (let i = 0; i < Math.min(10, section.frameCount); i++) {
+            // Load first 8 frames of each section
+            for (let i = 0; i < Math.min(8, section.frameCount); i++) {
                 promises.push(this.loadFrame(section.id, i, section.path));
+            }
+            // Also load last frame (for Section 3 hold)
+            if (section.id === 3) {
+                promises.push(this.loadFrame(section.id, section.frameCount - 1, section.path));
             }
         }
         
@@ -109,7 +113,6 @@ class CinematicScrolly {
             loaded++;
             const progress = (loaded / total) * 100;
             this.preloaderProgress.style.width = progress + '%';
-            this.preloaderText.textContent = `Loading ${loaded}/${total} frames...`;
         }
     }
 
@@ -153,7 +156,7 @@ class CinematicScrolly {
             duration: 1.8,
             easing: (t) => Math.min(1, 1.001 - Math.pow(2, -10 * t)),
             smoothWheel: true,
-            wheelMultiplier: 0.8,
+            wheelMultiplier: 0.7,
             touchMultiplier: 1.5,
         });
 
@@ -171,57 +174,55 @@ class CinematicScrolly {
         
         sectionElements.forEach((sectionEl, index) => {
             const section = this.sections[index];
-            const contentEl = sectionEl.querySelector('.section-content');
             const textElements = sectionEl.querySelectorAll('.section-number, .section-title, .section-body, .section-tags, .pricing-block');
             
-            // Create pinned scroll section
             ScrollTrigger.create({
                 trigger: sectionEl,
                 start: 'top top',
-                end: () => `+=${section.frameCount * 15}`, // Each frame = 15px of scroll
+                end: () => `+=${section.frameCount * 20}`,
                 pin: true,
                 pinSpacing: true,
-                scrub: 0.8,
+                scrub: 0.6,
                 
                 onUpdate: (self) => {
                     const progress = self.progress;
                     
-                    // Map scroll progress to frame index
-                    const frameIndex = Math.min(
-                        Math.floor(progress * (section.frameCount - 1)),
-                        section.frameCount - 1
-                    );
+                    // Calculate frame index with section-specific logic
+                    let frameIndex;
+                    
+                    if (index === 2) {
+                        // Section 3: Hero Shot Hold — show completed burger for entire section
+                        // Since Section 3 video is same as Section 2, we hold the final frame
+                        // This creates a cinematic "hero reveal" of the finished burger
+                        frameIndex = section.frameCount - 1;
+                        this.section3HoldFrame = frameIndex;
+                    } else {
+                        // Sections 1 & 2: normal playback
+                        frameIndex = Math.min(
+                            Math.floor(progress * (section.frameCount - 1)),
+                            section.frameCount - 1
+                        );
+                    }
                     
                     this.targetFrameIndex = frameIndex;
                     this.currentSection = index;
                     
-                    // Progressive loading: current + next 5 frames
-                    this.preloadAhead(section.id, frameIndex, 5);
+                    // Progressive loading
+                    this.preloadAhead(section.id, frameIndex, 6);
                     
-                    // Text animations based on progress
+                    // Text animations
                     this.animateText(textElements, progress);
                 },
                 
-                onEnter: () => {
-                    this.updateNavActive(index + 1);
-                },
+                onEnter: () => this.updateNavActive(index + 1),
+                onEnterBack: () => this.updateNavActive(index + 1),
                 
-                onEnterBack: () => {
-                    this.updateNavActive(index + 1);
-                },
-                
-                onLeave: () => {
-                    // Start transition to next section
-                    this.startSectionTransition(index + 1);
-                },
-                
-                onLeaveBack: () => {
-                    this.startSectionTransition(index - 1);
-                }
+                onLeave: () => this.startSectionTransition(index + 1),
+                onLeaveBack: () => this.startSectionTransition(index - 1)
             });
         });
 
-        // Menu section animation
+        // Menu section
         ScrollTrigger.create({
             trigger: '#menu',
             start: 'top 85%',
@@ -229,14 +230,14 @@ class CinematicScrolly {
                 gsap.from('.menu-title', {
                     y: 40, opacity: 0, duration: 1, ease: 'power3.out'
                 });
-                gsap.from('.menu-card', {
+                gsap.from('.burger-item', {
                     y: 80, opacity: 0, duration: 1.2, stagger: 0.2, ease: 'power3.out', delay: 0.2
                 });
             },
             once: true
         });
 
-        // Navigation background on scroll
+        // Nav background
         ScrollTrigger.create({
             trigger: 'body',
             start: 'top -100',
@@ -264,28 +265,20 @@ class CinematicScrolly {
     }
 
     animateText(elements, progress) {
-        // Entrance: 0% - 15%
-        // Hold: 15% - 85%
-        // Exit: 85% - 100%
-        
         elements.forEach((el, i) => {
-            const stagger = i * 0.03;
             const adjustedProgress = Math.max(0, Math.min(1, progress));
             
             let opacity = 0;
             let translateY = 40;
             
             if (adjustedProgress < 0.15) {
-                // Entrance
                 const p = adjustedProgress / 0.15;
                 opacity = Math.min(1, p * 1.5);
                 translateY = 40 * (1 - Math.min(1, p * 1.5));
             } else if (adjustedProgress < 0.85) {
-                // Hold
                 opacity = 1;
                 translateY = 0;
             } else {
-                // Exit
                 const p = (adjustedProgress - 0.85) / 0.15;
                 opacity = Math.max(0, 1 - p * 1.5);
                 translateY = -30 * Math.min(1, p * 1.5);
@@ -297,7 +290,6 @@ class CinematicScrolly {
     }
 
     startSectionTransition(targetSectionIndex) {
-        // Brief flash/dip effect during section change
         if (targetSectionIndex >= 0 && targetSectionIndex < this.sections.length) {
             gsap.to(this.transitionOverlay, {
                 opacity: 0.3,
@@ -323,6 +315,23 @@ class CinematicScrolly {
                 if (section) {
                     this.lenis.scrollTo(section, { duration: 2 });
                 }
+            });
+        });
+    }
+
+    setupMenuHover() {
+        // CSS handles the hover dimming effect
+        // Add any JS enhancements here if needed
+        const burgerItems = document.querySelectorAll('.burger-item');
+        
+        burgerItems.forEach(item => {
+            item.addEventListener('mouseenter', () => {
+                // Optional: sound effect or additional animation
+                item.style.transitionDelay = '0s';
+            });
+            
+            item.addEventListener('mouseleave', () => {
+                item.style.transitionDelay = '0.1s';
             });
         });
     }
@@ -354,18 +363,16 @@ class CinematicScrolly {
         const section = this.sections[this.currentSection];
         if (!section) return;
 
-        // Smooth lerp between current and target frame
+        // Smooth lerp
         const diff = this.targetFrameIndex - this.currentFrameIndex;
         
         if (Math.abs(diff) > 0.1) {
-            // Adjust lerp speed based on scroll velocity
             const speed = Math.min(0.25, this.frameLerpSpeed + Math.abs(diff) * 0.02);
             this.currentFrameIndex += diff * speed;
         } else {
             this.currentFrameIndex = this.targetFrameIndex;
         }
 
-        // Clamp
         this.currentFrameIndex = Math.max(0, Math.min(this.currentFrameIndex, section.frameCount - 1));
     }
 
@@ -373,19 +380,21 @@ class CinematicScrolly {
         const section = this.sections[this.currentSection];
         if (!section) return;
 
-        const frameIdx = Math.round(this.currentFrameIndex);
-        const frame = this.getFrame(section.id, frameIdx);
+        let frameIdx = Math.round(this.currentFrameIndex);
+        let frame = this.getFrame(section.id, frameIdx);
 
-        // Clear
+        // For Section 3 breathing effect
+        if (this.currentSection === 2 && this.section3BreathingPhase > 0) {
+            // Subtle scale breathing on the held frame
+            // Use CSS-like effect by slightly adjusting position
+        }
+
         this.ctx.fillStyle = '#0a0a0a';
         this.ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
 
         if (frame && frame.complete) {
             this.drawCoverImage(frame);
         }
-
-        // Apply cinematic overlays via canvas (optional enhancement)
-        // this.drawVignette();
     }
 
     drawCoverImage(img) {
@@ -409,25 +418,9 @@ class CinematicScrolly {
         this.ctx.drawImage(img, drawX, drawY, drawWidth, drawHeight);
     }
 
-    drawVignette() {
-        const gradient = this.ctx.createRadialGradient(
-            this.canvasWidth / 2, this.canvasHeight / 2, this.canvasHeight * 0.3,
-            this.canvasWidth / 2, this.canvasHeight / 2, this.canvasHeight * 0.8
-        );
-        gradient.addColorStop(0, 'rgba(10,10,10,0)');
-        gradient.addColorStop(1, 'rgba(10,10,10,0.6)');
-        
-        this.ctx.fillStyle = gradient;
-        this.ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
-    }
-
     destroy() {
-        if (this.rafId) {
-            cancelAnimationFrame(this.rafId);
-        }
-        if (this.lenis) {
-            this.lenis.destroy();
-        }
+        if (this.rafId) cancelAnimationFrame(this.rafId);
+        if (this.lenis) this.lenis.destroy();
         ScrollTrigger.getAll().forEach(t => t.kill());
     }
 }
@@ -437,14 +430,9 @@ document.addEventListener('DOMContentLoaded', () => {
     window.scrolly = new CinematicScrolly();
 });
 
-// Handle visibility change
-let wasHidden = false;
+// Tab visibility
 document.addEventListener('visibilitychange', () => {
-    if (document.hidden) {
-        wasHidden = true;
-    } else if (wasHidden && window.scrolly) {
-        // Refresh ScrollTrigger on tab return
+    if (!document.hidden && window.scrolly) {
         ScrollTrigger.refresh();
-        wasHidden = false;
     }
 });
