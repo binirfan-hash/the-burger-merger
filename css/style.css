@@ -400,11 +400,11 @@ body {
     transform: scale(0.92);
 }
 
-/* But the hovered item stays bright and scaled up */
-.burger-showcase:hover .burger-item:hover {
-    opacity: 1;
-    filter: grayscale(0%);
-    transform: scale(1.08) translateZ(30px);
+/* But the hovered item stays bright and scaled up — stronger specificity */
+.burger-showcase .burger-item:hover {
+    opacity: 1 !important;
+    filter: grayscale(0%) !important;
+    transform: scale(1.08) translateZ(30px) !important;
     z-index: 10;
 }
 
@@ -653,13 +653,11 @@ body {
 
 @media (max-width: 1024px) {
     .section-title {
-        font-size: 3rem;
-        margin-bottom: 1.5rem;
+        font-size: clamp(2rem, 4vw, 3.5rem);
     }
     
-    .section-description {
-        font-size: 1.1rem;
-        max-width: 80vw;
+    .section-body {
+        font-size: 0.9rem;
     }
     
     .nav-brand {
