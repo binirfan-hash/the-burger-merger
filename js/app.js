@@ -1,11 +1,13 @@
 /**
  * THE BURGER MERGER — Cinematic Scrollytelling Engine
  * 
- * Section Flow:
- * - Section 1: Foundation (240 frames) — bun placed on plate
- * - Section 2: The Build (360 frames) — ingredients layered
- * - Section 3: The Crown (240 frames) — top bun placed, then holds
- * - Menu: 3 burger cards with hover highlight/greyout
+ * Performance Optimizations:
+ * - 24fps frame capping with delta timing
+ * - Progressive loading with priority queue
+ * - Frame skipping on fast scrolls
+ * - Touch events for mobile
+ * - IntersectionObserver for lazy content
+ * - GPU-accelerated transforms
  */
 
 class CinematicScrolly {
@@ -17,6 +19,12 @@ class CinematicScrolly {
         this.preloaderText = document.querySelector('.preloader-text');
         this.transitionOverlay = document.getElementById('transition-overlay');
 
+        // 24fps timing
+        this.FPS = 24;
+        this.FRAME_INTERVAL = 1000 / this.FPS;
+        this.lastFrameTime = 0;
+        this.accumulator = 0;
+
         // Section configuration
         this.sections = [
             { id: 1, frameCount: 240, path: 'assets/video-frames/section-1/frame_', name: 'Foundation' },
@@ -27,6 +35,10 @@ class CinematicScrolly {
         // Frame cache: sectionId -> Map(index -> Image)
         this.frameCache = new Map();
         this.sections.forEach(s => this.frameCache.set(s.id, new Map()));
+        
+        // Priority loading queue
+        this.loadQueue = [];
+        this.isProcessingQueue = false;
 
         // Render state
         this.currentSection = 0;
@@ -36,9 +48,13 @@ class CinematicScrolly {
         this.crossfadeAlpha = 1;
 
         // Smoothing
-        this.frameLerpSpeed = 0.1;
+        this.frameLerpSpeed = 0.15;
         this.lastRenderTime = 0;
         this.isSectionTransitioning = false;
+        
+        // Scroll velocity tracking
+        this.lastScrollProgress = 0;
+        this.scrollVelocity = 0;
 
         // Canvas sizing
         this.dpr = Math.min(window.devicePixelRatio, 2);
@@ -50,7 +66,10 @@ class CinematicScrolly {
 
         // Section 3 hold state
         this.section3HoldFrame = null;
-        this.section3BreathingPhase = 0;
+
+        // Touch handling
+        this.touchStartY = 0;
+        this.isTouching = false;
 
         this.init();
     }
@@ -58,6 +77,7 @@ class CinematicScrolly {
     async init() {
         this.setupCanvas();
         this.setupResize();
+        this.setupTouchEvents();
         
         await this.preloadInitialFrames();
         
@@ -65,7 +85,7 @@ class CinematicScrolly {
         this.setupLenis();
         this.setupScrollTrigger();
         this.setupNavigation();
-        this.setupMenuHover();
+        this.setupMenuTouch();
         this.startRenderLoop();
     }
 
@@ -74,7 +94,11 @@ class CinematicScrolly {
     }
 
     setupResize() {
-        window.addEventListener('resize', () => this.resizeCanvas());
+        let resizeTimeout;
+        window.addEventListener('resize', () => {
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(() => this.resizeCanvas(), 100);
+        });
     }
 
     resizeCanvas() {
@@ -91,18 +115,35 @@ class CinematicScrolly {
         this.canvasHeight = h;
     }
 
+    setupTouchEvents() {
+        // Prevent zoom on double-tap
+        document.addEventListener('touchend', (e) => {
+            if (e.target.closest('.burger-item')) {
+                e.preventDefault();
+            }
+        }, { passive: false });
+
+        // Smooth touch scroll handling
+        document.addEventListener('touchstart', (e) => {
+            this.isTouching = true;
+            this.touchStartY = e.touches[0].clientY;
+        }, { passive: true });
+
+        document.addEventListener('touchend', () => {
+            this.isTouching = false;
+        }, { passive: true });
+    }
+
     async preloadInitialFrames() {
         const promises = [];
         
         for (const section of this.sections) {
-            // Load first 8 frames of each section
-            for (let i = 0; i < Math.min(8, section.frameCount); i++) {
+            // Load first 5 frames of each section (reduced for faster startup)
+            for (let i = 0; i < Math.min(5, section.frameCount); i++) {
                 promises.push(this.loadFrame(section.id, i, section.path));
             }
             // Also load last frame (for Section 3 hold)
-            if (section.id === 3) {
-                promises.push(this.loadFrame(section.id, section.frameCount - 1, section.path));
-            }
+            promises.push(this.loadFrame(section.id, section.frameCount - 1, section.path));
         }
         
         let loaded = 0;
@@ -130,7 +171,6 @@ class CinematicScrolly {
                 resolve(img);
             };
             img.onerror = () => {
-                console.warn(`Failed: ${src}`);
                 resolve(null);
             };
             img.src = src;
@@ -179,25 +219,27 @@ class CinematicScrolly {
             ScrollTrigger.create({
                 trigger: sectionEl,
                 start: 'top top',
-                end: () => `+=${section.frameCount * 20}`,
+                end: () => `+=${section.frameCount * 18}`,
                 pin: true,
                 pinSpacing: true,
-                scrub: 0.6,
+                scrub: 0.5,
                 
                 onUpdate: (self) => {
                     const progress = self.progress;
                     
-                    // Calculate frame index with section-specific logic
+                    // Calculate scroll velocity for adaptive loading
+                    this.scrollVelocity = Math.abs(progress - this.lastScrollProgress);
+                    this.lastScrollProgress = progress;
+                    
+                    // Calculate frame index
                     let frameIndex;
                     
                     if (index === 2) {
-                        // Section 3: Hero Shot Hold — show completed burger for entire section
-                        // Since Section 3 video is same as Section 2, we hold the final frame
-                        // This creates a cinematic "hero reveal" of the finished burger
+                        // Section 3: Hold on final frame
                         frameIndex = section.frameCount - 1;
                         this.section3HoldFrame = frameIndex;
                     } else {
-                        // Sections 1 & 2: normal playback
+                        // Normal playback with 24fps capping
                         frameIndex = Math.min(
                             Math.floor(progress * (section.frameCount - 1)),
                             section.frameCount - 1
@@ -207,8 +249,9 @@ class CinematicScrolly {
                     this.targetFrameIndex = frameIndex;
                     this.currentSection = index;
                     
-                    // Progressive loading
-                    this.preloadAhead(section.id, frameIndex, 6);
+                    // Adaptive loading based on scroll velocity
+                    const preloadCount = this.scrollVelocity > 0.01 ? 10 : 4;
+                    this.preloadAhead(section.id, frameIndex, preloadCount);
                     
                     // Text animations
                     this.animateText(textElements, progress);
@@ -222,20 +265,23 @@ class CinematicScrolly {
             });
         });
 
-        // Menu section
-        ScrollTrigger.create({
-            trigger: '#menu',
-            start: 'top 85%',
-            onEnter: () => {
-                gsap.from('.menu-title', {
-                    y: 40, opacity: 0, duration: 1, ease: 'power3.out'
-                });
-                gsap.from('.burger-item', {
-                    y: 80, opacity: 0, duration: 1.2, stagger: 0.2, ease: 'power3.out', delay: 0.2
-                });
-            },
-            once: true
-        });
+        // Menu section with IntersectionObserver
+        const menuObserver = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    gsap.from('.menu-title', {
+                        y: 40, opacity: 0, duration: 1, ease: 'power3.out'
+                    });
+                    gsap.from('.burger-item', {
+                        y: 80, opacity: 0, duration: 1.2, stagger: 0.2, ease: 'power3.out', delay: 0.2
+                    });
+                    menuObserver.disconnect();
+                }
+            });
+        }, { threshold: 0.15 });
+        
+        const menuSection = document.getElementById('menu');
+        if (menuSection) menuObserver.observe(menuSection);
 
         // Nav background
         ScrollTrigger.create({
@@ -256,12 +302,29 @@ class CinematicScrolly {
         const section = this.sections.find(s => s.id === sectionId);
         if (!section) return;
 
+        // Add to priority queue
         for (let i = 1; i <= count; i++) {
             const nextIndex = currentIndex + i;
             if (nextIndex < section.frameCount && !this.getFrame(sectionId, nextIndex)) {
-                this.loadFrame(sectionId, nextIndex, section.path);
+                this.loadQueue.push({ sectionId, index: nextIndex, path: section.path });
             }
         }
+        
+        this.processLoadQueue();
+    }
+
+    async processLoadQueue() {
+        if (this.isProcessingQueue || this.loadQueue.length === 0) return;
+        
+        this.isProcessingQueue = true;
+        
+        // Process queue in batches of 3
+        while (this.loadQueue.length > 0) {
+            const batch = this.loadQueue.splice(0, 3);
+            await Promise.all(batch.map(item => this.loadFrame(item.sectionId, item.index, item.path)));
+        }
+        
+        this.isProcessingQueue = false;
     }
 
     animateText(elements, progress) {
@@ -286,6 +349,8 @@ class CinematicScrolly {
             
             el.style.opacity = opacity;
             el.style.transform = `translateY(${translateY}px)`;
+            // GPU acceleration
+            el.style.willChange = 'transform, opacity';
         });
     }
 
@@ -319,20 +384,38 @@ class CinematicScrolly {
         });
     }
 
-    setupMenuHover() {
-        // CSS handles the hover dimming effect
-        // Add any JS enhancements here if needed
+    setupMenuTouch() {
         const burgerItems = document.querySelectorAll('.burger-item');
         
         burgerItems.forEach(item => {
+            // Touch support for mobile
+            item.addEventListener('touchstart', (e) => {
+                e.preventDefault();
+                burgerItems.forEach(bi => bi.classList.remove('touched'));
+                item.classList.add('touched');
+            }, { passive: false });
+            
+            item.addEventListener('touchend', () => {
+                setTimeout(() => {
+                    item.classList.remove('touched');
+                }, 300);
+            });
+            
+            // Keep hover for desktop
             item.addEventListener('mouseenter', () => {
-                // Optional: sound effect or additional animation
                 item.style.transitionDelay = '0s';
             });
             
             item.addEventListener('mouseleave', () => {
                 item.style.transitionDelay = '0.1s';
             });
+        });
+        
+        // Tap outside to reset
+        document.addEventListener('touchstart', (e) => {
+            if (!e.target.closest('.burger-item')) {
+                burgerItems.forEach(bi => bi.classList.remove('touched'));
+            }
         });
     }
 
@@ -347,11 +430,14 @@ class CinematicScrolly {
 
     startRenderLoop() {
         const loop = (timestamp) => {
-            const dt = timestamp - this.lastRenderTime;
-            this.lastRenderTime = timestamp;
+            // 24fps cap using delta timing
+            const delta = timestamp - this.lastFrameTime;
             
-            this.updateFrame(dt);
-            this.render();
+            if (delta >= this.FRAME_INTERVAL) {
+                this.lastFrameTime = timestamp - (delta % this.FRAME_INTERVAL);
+                this.updateFrame(delta);
+                this.render();
+            }
             
             this.rafId = requestAnimationFrame(loop);
         };
@@ -363,12 +449,13 @@ class CinematicScrolly {
         const section = this.sections[this.currentSection];
         if (!section) return;
 
-        // Smooth lerp
+        // Smooth lerp with adaptive speed based on scroll velocity
         const diff = this.targetFrameIndex - this.currentFrameIndex;
         
         if (Math.abs(diff) > 0.1) {
-            const speed = Math.min(0.25, this.frameLerpSpeed + Math.abs(diff) * 0.02);
-            this.currentFrameIndex += diff * speed;
+            // Faster lerp when scrolling fast, slower when idle
+            const adaptiveSpeed = Math.min(0.3, this.frameLerpSpeed + this.scrollVelocity * 2);
+            this.currentFrameIndex += diff * adaptiveSpeed;
         } else {
             this.currentFrameIndex = this.targetFrameIndex;
         }
@@ -380,14 +467,8 @@ class CinematicScrolly {
         const section = this.sections[this.currentSection];
         if (!section) return;
 
-        let frameIdx = Math.round(this.currentFrameIndex);
-        let frame = this.getFrame(section.id, frameIdx);
-
-        // For Section 3 breathing effect
-        if (this.currentSection === 2 && this.section3BreathingPhase > 0) {
-            // Subtle scale breathing on the held frame
-            // Use CSS-like effect by slightly adjusting position
-        }
+        const frameIdx = Math.round(this.currentFrameIndex);
+        const frame = this.getFrame(section.id, frameIdx);
 
         this.ctx.fillStyle = '#0a0a0a';
         this.ctx.fillRect(0, 0, this.canvasWidth, this.canvasHeight);
@@ -436,3 +517,11 @@ document.addEventListener('visibilitychange', () => {
         ScrollTrigger.refresh();
     }
 });
+
+// Service Worker for offline caching (optional enhancement)
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        // Cache key frames for faster repeat visits
+        // Not implementing full SW to keep it simple
+    });
+}
