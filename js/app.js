@@ -36,7 +36,7 @@ class CinematicScrolly {
         this.crossfadeAlpha = 1;
 
         // Smoothing
-        this.frameLerpSpeed = 0.1;
+        this.frameLerpSpeed = 0.12;
         this.lastRenderTime = 0;
         this.isSectionTransitioning = false;
 
@@ -95,11 +95,13 @@ class CinematicScrolly {
         const promises = [];
         
         for (const section of this.sections) {
-            // Load first 8 frames of each section
-            for (let i = 0; i < Math.min(8, section.frameCount); i++) {
+            // Load first 20 frames of each section for smoother start
+            for (let i = 0; i < Math.min(20, section.frameCount); i++) {
                 promises.push(this.loadFrame(section.id, i, section.path));
             }
-            // Also load last frame (for Section 3 hold)
+            // Also preload key frames: middle and end
+            const midFrame = Math.floor(section.frameCount / 2);
+            promises.push(this.loadFrame(section.id, midFrame, section.path));
             if (section.id === 3) {
                 promises.push(this.loadFrame(section.id, section.frameCount - 1, section.path));
             }
