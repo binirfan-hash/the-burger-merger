@@ -651,6 +651,22 @@ body {
    RESPONSIVE
    ============================================ */
 
+@media (max-width: 1024px) {
+    .section-title {
+        font-size: 3rem;
+        margin-bottom: 1.5rem;
+    }
+    
+    .section-description {
+        font-size: 1.1rem;
+        max-width: 80vw;
+    }
+    
+    .nav-brand {
+        font-size: 1.2rem;
+    }
+}
+
 @media (max-width: 768px) {
     .scroll-section {
         padding: 0 5vw 10vh;
